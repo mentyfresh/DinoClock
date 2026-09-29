@@ -326,6 +326,18 @@
   .song-item { background: #1a1a1a; border: 1px solid #2a2a2a; padding: 6px 8px; border-radius: 6px; font-size: 11px; color: #ccc; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .song-item.active { background: #fff; color: #000; border-color: #fff; }
   .side-menu { overflow-y: auto; scrollbar-width: thin; }
+  /* Mobile-only: desktop styles above are untouched */
+  @media (max-width: 600px) {
+    .stage { width: min(84vw, 48vh); height: min(84vw, 48vh); }
+    #menuBtn { top: 12px; left: 12px; }
+    .toggle-wrap { top: 12px; right: 12px; font-size: 12px; padding: 8px 12px; }
+    .lap-counter { top: 12px; font-size: 12px; padding: 8px 12px; max-width: 36vw; overflow: hidden; }
+    .lap-counter span { font-size: 14px; }
+    .spin-timer { top: calc(100% + 10px); font-size: 11px; }
+    .digital-clock { left: 50%; top: calc(100% + 42px); transform: translateX(-50%); font-size: 12px; }
+    .hint { font-size: 12px; bottom: 14px; }
+    .side-menu { width: min(260px, 86vw); }
+  }
 </style>
 </head>
 <body>

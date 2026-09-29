@@ -328,7 +328,8 @@
   .side-menu { overflow-y: auto; scrollbar-width: thin; }
   /* Mobile-only: desktop styles above are untouched */
   @media (max-width: 600px) {
-    .stage { width: min(84vw, 48vh); height: min(84vw, 48vh); }
+    body { height: 100vh; height: 100dvh; }
+    .stage { width: 70vmin; height: 70vmin; margin: 0 auto; }
     #menuBtn { top: 12px; left: 12px; }
     .toggle-wrap { top: 12px; right: 12px; font-size: 12px; padding: 8px 12px; }
     .lap-counter { top: 12px; font-size: 12px; padding: 8px 12px; max-width: 36vw; overflow: hidden; }
@@ -337,6 +338,9 @@
     .digital-clock { left: 50%; top: calc(100% + 42px); transform: translateX(-50%); font-size: 12px; }
     .hint { font-size: 12px; bottom: 14px; }
     .side-menu { width: min(260px, 86vw); }
+    .tick { top: 6px; height: 8px; transform-origin: 50% calc(35vmin - 6px); }
+    .tick.major { top: 5px; height: 12px; }
+    .num { font-size: 2.8vmin; width: 4.5vmin; height: 4.5vmin; }
   }
 </style>
 </head>

@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circle Spin</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #000;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .spiral-bg {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .spiral-bg svg {
+    width: 140vmax;
+    height: 140vmax;
+    opacity: 0.18;
+  }
+  .trippy-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    animation: trippy 0.5s linear infinite, trippyZoom 0.25s ease-in-out infinite alternate;
+  }
+  .trippy-bg.active { opacity: var(--trippy-bright, 1); }
+  .trippy-bg.no-color { animation: trippyGray 0.5s linear infinite, trippyZoom 0.25s ease-in-out infinite alternate; }
+  @keyframes trippyGray {
+    0% { background: #222; }
+    25% { background: #555; }
+    50% { background: #999; }
+    75% { background: #444; }
+    100% { background: #222; }
+  }
+  .trippy-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-radial-gradient(circle at 50% 50%, transparent 0 18px, rgba(255,255,255,0.12) 18px 20px);
+    animation: trippyShift 0.3s linear infinite;
+  }
+  @keyframes trippy {
+    0% { background: #ff0040; filter: hue-rotate(0deg) brightness(1.3) contrast(1.2); }
+    14% { background: #ff8c00; filter: hue-rotate(30deg) brightness(1.5); }
+    28% { background: #ffee00; filter: hue-rotate(60deg) brightness(1.4); }
+    42% { background: #00ff44; filter: hue-rotate(120deg) brightness(1.3); }
+    57% { background: #00ffff; filter: hue-rotate(180deg) brightness(1.5); }
+    71% { background: #0055ff; filter: hue-rotate(240deg) brightness(1.4); }
+    85% { background: #cc00ff; filter: hue-rotate(300deg) brightness(1.6); }
+    100% { background: #ff0040; filter: hue-rotate(360deg) brightness(1.3); }
+  }
+  @keyframes trippyZoom { from { transform: scale(1); } to { transform: scale(1.03); } }
+  @keyframes trippyShift { from { transform: rotate(0deg) scale(1); } to { transform: rotate(3deg) scale(1.02); } }
+  body.trippy-on .spiral-bg svg { filter: hue-rotate(0deg) brightness(1.8) drop-shadow(0 0 20px white); animation: spiralHue 0.4s linear infinite; }
+  @keyframes spiralHue { to { filter: hue-rotate(360deg) brightness(1.8) drop-shadow(0 0 20px white); } }
+  body.trippy-on .stage { animation: wobble 0.2s ease-in-out infinite alternate; }
+  @keyframes wobble { from { transform: scale(1) rotate(-1deg); } to { transform: scale(1.04) rotate(1deg); } }
+  body.trippy-on #circle { box-shadow: 0 0 30px white, 0 0 60px currentColor; }
+  .clock { position: absolute; inset: 0; z-index: 6; pointer-events: none; border-radius: 50%; }
+  .hand { position: absolute; left: 50%; bottom: 50%; transform-origin: 50% 100%; border-radius: 999px; }
+  .hand.hour { width: 10px; height: 17vmin; background: #000; margin-left: -5px; z-index: 7; }
+  .hand.minute { width: 6px; height: 23vmin; background: #111; margin-left: -3px; z-index: 8; }
+  .hand.second { width: 2px; height: 27vmin; background: #ff0040; margin-left: -1px; z-index: 9; }
+  .clock-center { position: absolute; top: 50%; left: 50%; width: 16px; height: 16px; background: #000; border: 2px solid #fff; border-radius: 50%; transform: translate(-50%,-50%); z-index: 10; box-shadow: 0 0 6px rgba(0,0,0,0.4); }
+  .tick { position: absolute; left: 50%; top: 12px; width: 2px; height: 12px; background: #000; transform-origin: 50% calc(35vmin - 12px); margin-left: -1px; opacity: 0.9; }
+  .tick.major { width: 4px; height: 18px; margin-left: -2px; top: 10px; }
+  .num { position: absolute; left: 50%; top: 50%; font-family: sans-serif; font-weight: 800; font-size: 3.2vmin; color: #000; transform: translate(-50%,-50%); width: 5vmin; height: 5vmin; display: flex; align-items: center; justify-content: center; }
+  .stage {
+    width: 70vmin;
+    height: 70vmin;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #circle {
+    position: absolute;
+    inset: 0;
+    background: white;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 10px solid #000;
+    box-shadow: 0 0 0 4px #fff;
+  }
+  #circle::after {
+    content: '';
+    position: absolute;
+    top: 5%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 28px;
+    height: 28px;
+    background: #ff0040;
+    border-radius: 50%;
+    z-index: 3;
+  }
+  .spin {
+    animation: spin 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .auto-spin {
+    animation: spin 1.2s linear infinite;
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  @keyframes spinReverse {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(-360deg); }
+  }
+  .spin-reverse {
+    animation: spinReverse 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .auto-spin-reverse {
+    animation: spinReverse 1.2s linear infinite;
+  }
+  .hint {
+    position: fixed;
+    bottom: 24px;
+    color: #666;
+    font-family: sans-serif;
+    font-size: 14px;
+    letter-spacing: 1px;
+  }
+  .toggle-wrap {
+    position: fixed;
+    top: 22px;
+    right: 22px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #fff;
+    font-family: sans-serif;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    background: #111;
+    border: 1px solid #222;
+    padding: 10px 14px;
+    border-radius: 999px;
+  }
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 28px;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: #333;
+    border-radius: 28px;
+    transition: .3s;
+    border: 1px solid #444;
+  }
+  .slider:before {
+    content: "";
+    position: absolute;
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: .3s;
+  }
+  input:checked + .slider { background: #fff; }
+  input:checked + .slider:before { transform: translateX(22px); background: #000; }
+  .dino {
+    font-size: 28vmin;
+    line-height: 1;
+    user-select: none;
+    pointer-events: none;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+    z-index: 2;
+    position: relative;
+    opacity: 0.35;
+  }
+  #menuBtn {
+    position: fixed;
+    top: 22px;
+    left: 22px;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 1px solid #222;
+    background: #111;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  .side-menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 260px;
+    background: #0c0c0c;
+    border-right: 1px solid #1e1e1e;
+    padding: 80px 20px 20px;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 9;
+    font-family: sans-serif;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .side-menu.open { transform: translateX(0); }
+  .side-menu h2 {
+    font-size: 16px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #aaa;
+    margin-bottom: 4px;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: #161616;
+    border: 1px solid #222;
+    padding: 14px;
+    border-radius: 12px;
+  }
+  .control-group label {
+    font-size: 13px;
+    color: #ccc;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .control-group input[type="range"] {
+    width: 100%;
+    accent-color: #fff;
+    cursor: pointer;
+  }
+  .speed-display { color: #fff; font-weight: 600; }
+  .lap-counter {
+    position: fixed;
+    top: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #111;
+    border: 1px solid #222;
+    color: #fff;
+    font-family: sans-serif;
+    font-size: 14px;
+    letter-spacing: 1px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    z-index: 8;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .lap-counter span { font-weight: 800; font-size: 16px; }
+  .spin-timer {
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 14px);
+    transform: translateX(-50%);
+    background: #111;
+    border: 1px solid #222;
+    color: #fff;
+    font-family: monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    z-index: 8;
+    white-space: nowrap;
+  }
+  .spin-timer span { font-weight: 800; }
+  .digital-clock {
+    position: absolute;
+    left: calc(100% + 18px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: #111;
+    border: 1px solid #222;
+    color: #fff;
+    font-family: monospace;
+    font-size: 13px;
+    letter-spacing: 1px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    z-index: 8;
+    white-space: nowrap;
+  }
+  @media (max-width: 700px) { .digital-clock { left: 50%; top: calc(100% + 16px); transform: translateX(-50%); } }
+  .reset-btn {
+    width: 100%;
+    margin-top: 4px;
+    background: #222;
+    color: #fff;
+    border: 1px solid #333;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .reset-btn:hover { background: #2a2a2a; }
+  .song-list { display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; }
+  .song-item { background: #1a1a1a; border: 1px solid #2a2a2a; padding: 6px 8px; border-radius: 6px; font-size: 11px; color: #ccc; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .song-item.active { background: #fff; color: #000; border-color: #fff; }
+  .side-menu { overflow-y: auto; scrollbar-width: thin; }
+</style>
+</head>
+<body>
+  <div class="trippy-bg" id="trippy"></div>
+  <div class="spiral-bg"><svg id="spiralSvg" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet"><path id="spiralPath" fill="none" stroke="white" stroke-width="1.2" stroke-linecap="round" opacity="0.9"/></svg></div>
+  <button id="menuBtn">☰</button>
+  <nav class="side-menu" id="sideMenu">
+    <h2>Menu</h2>
+    <div class="control-group">
+      <label>Speed <span class="speed-display" id="speedVal">1.0x</span></label>
+      <input type="range" id="speed" min="0.2" max="100" step="0.5" value="1">
+      <input type="number" id="speedBox" min="0.2" max="100" step="0.5" value="1" style="width:100%; background:#0f0f0f; color:#fff; border:1px solid #333; padding:6px 8px; border-radius:6px; text-align:center;">
+      <label style="font-size:11px; color:#666; justify-content:center;">slow ————————— fast</label>
+    </div>
+    <div class="control-group">
+      <label>Laps <span class="speed-display" id="menuLapCount">0</span></label>
+      <button class="reset-btn" id="resetBtn">Reset Laps</button>
+    </div>
+    <div class="control-group">
+      <label>Spinning for <span class="speed-display" id="menuSpinTime">0s</span></label>
+      <button class="reset-btn" id="resetSpinBtn">Reset Timer</button>
+    </div>
+    <div class="control-group">
+      <button class="reset-btn" id="fsBtn">⛶ Fullscreen</button>
+    </div>
+    <div class="control-group">
+      <label>🎵 Songs</label>
+      <input type="file" id="songUpload" accept="audio/*" multiple style="width:100%; font-size:11px; color:#ccc;">
+      <audio id="audioPlayer" controls style="width:100%; height:28px; margin-top:4px;"></audio>
+      <div class="song-list" id="songList"></div>
+    </div>
+    <div class="control-group">
+      <label>Brightness <span class="speed-display" id="brightVal">100%</span></label>
+      <input type="range" id="brightness" min="20" max="200" value="100">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:13px; color:#ccc;">
+        <span>Color</span>
+        <label class="switch" style="width:44px; height:24px;"><input type="checkbox" id="colorToggle" checked><span class="slider"></span></label>
+      </div>
+    </div>
+  </nav>
+  <label class="toggle-wrap">
+    <span>Toggle Spin</span>
+    <label class="switch">
+      <input type="checkbox" id="toggle">
+      <span class="slider"></span>
+    </label>
+  </label>
+  <div class="lap-counter">LAPS: <span id="lapCount">0</span></div>
+  <div class="stage" id="stage">
+    <div id="circle"></div>
+    <div class="dino" id="dino">🦖</div>
+    <div class="clock" id="clock">
+      <div class="hand hour" id="hourHand"></div>
+      <div class="hand minute" id="minuteHand"></div>
+      <div class="hand second" id="secondHand"></div>
+      <div class="clock-center"></div>
+    </div>
+    <div class="digital-clock" id="digitalClock">--:--:--</div>
+    <div class="spin-timer">SPINNING FOR: <span id="spinTime">0s</span></div>
+  </div>
+  <div class="hint">press SPACE to spin</div>
+<script>
+  (function drawSpiral(){
+    const path = document.getElementById('spiralPath');
+    if(!path) return;
+    const cx=200, cy=200;
+    let d='';
+    const turns=18;
+    const gap=7;
+    for(let theta=0; theta < turns*360; theta+=2){
+      const rad = theta*Math.PI/180;
+      const r = gap * rad / (Math.PI*0.35) * 0.52;
+      const x = cx + r*Math.cos(rad);
+      const y = cy + r*Math.sin(rad);
+      if(theta===0) d+='M'+x+' '+y;
+      else d+=' L'+x+' '+y;
+    }
+    path.setAttribute('d', d);
+  })();
+  const trippy = document.getElementById('trippy');
+  const spiralSvg = document.getElementById('spiralSvg');
+  const circle = document.getElementById('circle');
+  const dino = document.getElementById('dino');
+  const stage = document.getElementById('stage');
+  const toggle = document.getElementById('toggle');
+  const menuBtn = document.getElementById('menuBtn');
+  const sideMenu = document.getElementById('sideMenu');
+  const speedInput = document.getElementById('speed');
+  const speedBox = document.getElementById('speedBox');
+  const speedVal = document.getElementById('speedVal');
+  const lapCount = document.getElementById('lapCount');
+  const menuLapCount = document.getElementById('menuLapCount');
+  const resetBtn = document.getElementById('resetBtn');
+  let laps = 0;
+  function updateLaps() { lapCount.textContent = laps; menuLapCount.textContent = laps; }
+  function addLap() { laps++; updateLaps(); }
+  resetBtn.addEventListener('click', () => { laps = 0; updateLaps(); });
+  const spinTimeEl = document.getElementById('spinTime');
+  const menuSpinTime = document.getElementById('menuSpinTime');
+  const resetSpinBtn = document.getElementById('resetSpinBtn');
+  let spinTotalMs = 0, spinStart = null;
+  function fmt(ms){
+    const s = Math.floor(ms/1000);
+    if(s<60) return s+'s';
+    const m=Math.floor(s/60), h=Math.floor(m/60);
+    if(h>0) return h+'h '+String(m%60).padStart(2,'0')+'m '+String(s%60).padStart(2,'0')+'s';
+    return m+'m '+String(s%60).padStart(2,'0')+'s';
+  }
+  function renderSpinTime(){
+    const cur = spinTotalMs + (spinStart ? Date.now()-spinStart : 0);
+    const t = fmt(cur);
+    spinTimeEl.textContent = t; menuSpinTime.textContent = t;
+  }
+  setInterval(renderSpinTime, 250);
+  resetSpinBtn.addEventListener('click', () => { spinTotalMs = 0; spinStart = toggle.checked ? Date.now() : null; renderSpinTime(); });
+  const songUpload = document.getElementById('songUpload');
+  const audioPlayer = document.getElementById('audioPlayer');
+  const songList = document.getElementById('songList');
+  const songs=[];
+  songUpload.addEventListener('change', (e)=>{
+    for(const f of e.target.files){
+      const url=URL.createObjectURL(f);
+      songs.push({name:f.name, url});
+      const div=document.createElement('div');
+      div.className='song-item';
+      div.textContent=f.name;
+      div.onclick=()=>{ document.querySelectorAll('.song-item').forEach(x=>x.classList.remove('active')); div.classList.add('active'); audioPlayer.src=url; audioPlayer.play(); };
+      songList.appendChild(div);
+      if(songs.length===1){ div.click(); }
+    }
+  });
+  const brightness = document.getElementById('brightness');
+  const brightVal = document.getElementById('brightVal');
+  const colorToggle = document.getElementById('colorToggle');
+  function updateBrightness(){
+    const v=parseInt(brightness.value);
+    brightVal.textContent=v+'%';
+    trippy.style.setProperty('--trippy-bright', (v/100));
+    document.documentElement.style.setProperty('--trippy-bright', (v/100));
+  }
+  brightness.addEventListener('input', updateBrightness);
+  colorToggle.addEventListener('change', () => {
+    trippy.classList.toggle('no-color', !colorToggle.checked);
+  });
+  updateBrightness();
+  const fsBtn = document.getElementById('fsBtn');
+  fsBtn.addEventListener('click', () => {
+    if(!document.fullscreenElement){ document.documentElement.requestFullscreen().catch(()=>{}); }
+    else document.exitFullscreen().catch(()=>{});
+  });
+  document.addEventListener('fullscreenchange', () => {
+    fsBtn.textContent = document.fullscreenElement ? '✕ Exit Fullscreen' : '⛶ Fullscreen';
+  });
+  menuBtn.addEventListener('click', () => sideMenu.classList.toggle('open'));
+  function updateSpeed() {
+    const s = parseFloat(speedInput.value);
+    speedVal.textContent = s.toFixed(1) + 'x';
+    circle.style.setProperty('--auto-dur', (1.2 / s) + 's');
+    circle.style.setProperty('--spin-dur', (0.7 / s) + 's');
+    dino.style.setProperty('--auto-dur', (1.2 / s) + 's');
+    dino.style.setProperty('--spin-dur', (0.7 / s) + 's');
+    spiralSvg.style.setProperty('--auto-dur', (1.2 / s) + 's');
+    spiralSvg.style.setProperty('--spin-dur', (0.7 / s) + 's');
+    trippy.style.animationDuration = (1.2 / s) + 's';
+    if (circle.classList.contains('auto-spin')) {
+      circle.style.animationDuration = (1.2 / s) + 's';
+      dino.style.animationDuration = (1.2 / s) + 's';
+      spiralSvg.style.animationDuration = (1.2 / s) + 's';
+    }
+  }
+  speedInput.addEventListener('input', () => { speedBox.value = speedInput.value; updateSpeed(); });
+  speedBox.addEventListener('input', () => {
+    let v = parseFloat(speedBox.value);
+    if(isNaN(v)) return;
+    v = Math.min(100, Math.max(0.2, v));
+    speedInput.value = v;
+    updateSpeed();
+  });
+  updateSpeed();
+  const style = document.createElement('style');
+  style.textContent = '.auto-spin { animation-duration: var(--auto-dur, 1.2s) !important; } .spin { animation-duration: var(--spin-dur, 0.7s) !important; } .auto-spin-reverse { animation-duration: var(--auto-dur, 1.2s) !important; } .spin-reverse { animation-duration: var(--spin-dur, 0.7s) !important; }';
+  document.head.appendChild(style);
+  toggle.addEventListener('change', () => {
+    if (toggle.checked) {
+      circle.classList.remove('spin');
+      dino.classList.remove('spin-reverse');
+      spiralSvg.classList.remove('spin');
+      circle.classList.add('auto-spin');
+      dino.classList.add('auto-spin-reverse');
+      spiralSvg.classList.add('auto-spin');
+      trippy.classList.add('active');
+      document.body.classList.add('trippy-on');
+      spinStart = Date.now();
+    } else {
+      if(spinStart) spinTotalMs += Date.now()-spinStart;
+      spinStart = null;
+      circle.classList.remove('auto-spin');
+      dino.classList.remove('auto-spin-reverse');
+      spiralSvg.classList.remove('auto-spin');
+      trippy.classList.remove('active');
+      document.body.classList.remove('trippy-on');
+      renderSpinTime();
+    }
+  });
+  let trippyTimeout;
+  function triggerTrippy() {
+    trippy.classList.add('active');
+    document.body.classList.add('trippy-on');
+    clearTimeout(trippyTimeout);
+    const dur = parseFloat(getComputedStyle(circle).getPropertyValue('--spin-dur')) || 0.7;
+    trippyTimeout = setTimeout(() => { if(!toggle.checked) { trippy.classList.remove('active'); document.body.classList.remove('trippy-on'); } }, dur*1000 + 100);
+  }
+  function doSpin() {
+    if (toggle.checked) return;
+    circle.classList.remove('spin');
+    dino.classList.remove('spin-reverse');
+    spiralSvg.classList.remove('spin');
+    void circle.offsetWidth;
+    void dino.offsetWidth;
+    void spiralSvg.offsetWidth;
+    circle.classList.add('spin');
+    dino.classList.add('spin-reverse');
+    spiralSvg.classList.add('spin');
+    triggerTrippy();
+    const dur = (parseFloat(getComputedStyle(circle).getPropertyValue('--spin-dur')) || 0.7) * 1000;
+    spinStart = Date.now();
+    setTimeout(() => { if(spinStart && !toggle.checked){ spinTotalMs += Date.now()-spinStart; spinStart = null; renderSpinTime(); } }, dur+50);
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' || e.key === ' ') {
+      e.preventDefault();
+      doSpin();
+    }
+  });
+  stage.addEventListener('click', doSpin);
+  circle.addEventListener('animationend', (e) => {
+    if (e.animationName === 'spin' && !circle.classList.contains('auto-spin')) {
+      circle.classList.remove('spin');
+      addLap();
+    }
+  });
+  circle.addEventListener('animationiteration', () => {
+    if (circle.classList.contains('auto-spin')) addLap();
+  });
+  dino.addEventListener('animationend', (e) => {
+    if (e.animationName === 'spinReverse' && !dino.classList.contains('auto-spin-reverse')) {
+      dino.classList.remove('spin-reverse');
+    }
+  });
+  spiralSvg.addEventListener('animationend', (e) => {
+    if (e.animationName === 'spin' && !spiralSvg.classList.contains('auto-spin')) {
+      spiralSvg.classList.remove('spin');
+    }
+  });
+  const clockEl = document.getElementById('clock');
+  for(let i=0;i<60;i++){
+    const t=document.createElement('div');
+    const isHour=i%5===0;
+    t.className='tick'+(isHour?' major':'');
+    if(!isHour){ t.style.height='7px'; t.style.opacity='0.55'; }
+    t.style.transform='translateX(-50%) rotate('+(i*6)+'deg)';
+    clockEl.appendChild(t);
+  }
+  for(let n=1;n<=12;n++){
+    const el=document.createElement('div');
+    el.className='num';
+    el.textContent=n;
+    const ang=n*30;
+    const rad=ang*Math.PI/180;
+    const r=27;
+    el.style.left='calc(50% + '+(Math.sin(rad)*r)+'vmin)';
+    el.style.top='calc(50% + '+(-Math.cos(rad)*r)+'vmin)';
+    clockEl.appendChild(el);
+  }
+  const hourHand=document.getElementById('hourHand');
+  const minuteHand=document.getElementById('minuteHand');
+  const secondHand=document.getElementById('secondHand');
+  const digitalClock=document.getElementById('digitalClock');
+  function updateClock(){
+    const now=new Date();
+    const s=now.getSeconds()+now.getMilliseconds()/1000;
+    const m=now.getMinutes()+s/60;
+    const h=now.getHours()%12 + m/60;
+    secondHand.style.transform='translateX(-50%) rotate('+(s*6)+'deg)';
+    minuteHand.style.transform='translateX(-50%) rotate('+(m*6)+'deg)';
+    hourHand.style.transform='translateX(-50%) rotate('+(h*30)+'deg)';
+    digitalClock.textContent=now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  }
+  setInterval(updateClock,50);
+  updateClock();
+</script>
+</body>
+</html>

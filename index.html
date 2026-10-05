@@ -252,6 +252,46 @@
     from { transform: translate(-50%, -50%) rotate(0deg); }
     to { transform: translate(-50%, -50%) rotate(-360deg); }
   }
+  #dinoParty {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 7;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    overflow: hidden;
+  }
+  #dinoParty.show { opacity: 1; }
+  .party-dino {
+    position: absolute;
+    top: 0;
+    line-height: 1;
+    user-select: none;
+    pointer-events: none;
+    filter: drop-shadow(0 0 10px rgba(255,255,255,0.45));
+  }
+  .party-inner {
+    display: inline-block;
+    line-height: 1;
+    animation: partyWiggle 0.8s ease-in-out infinite;
+  }
+  @keyframes partyFall {
+    from { transform: translate(-50%, 0) translateY(-15vh) rotate(0deg); }
+    to { transform: translate(-50%, 0) translateY(118vh) rotate(360deg); }
+  }
+  @keyframes partyFallReverse {
+    from { transform: translate(-50%, 0) translateY(-15vh) rotate(0deg); }
+    to { transform: translate(-50%, 0) translateY(118vh) rotate(-360deg); }
+  }
+  @keyframes partyFly {
+    from { transform: translate(0, -50%) translateX(-15vw) rotate(0deg); }
+    to { transform: translate(0, -50%) translateX(118vw) rotate(360deg); }
+  }
+  @keyframes partyWiggle {
+    0% { transform: rotate(-35deg) scale(0.65); }
+    50% { transform: rotate(35deg) scale(1.35); }
+    100% { transform: rotate(-35deg) scale(0.65); }
+  }
   #menuBtn {
     position: fixed;
     top: 22px;
@@ -408,6 +448,7 @@
   <div class="trippy-bg" id="trippy"></div>
   <div class="spiral-bg"><svg id="spiralSvg" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet"><path id="spiralPath" fill="none" stroke="white" stroke-width="1.2" stroke-linecap="round" opacity="0.9"/></svg></div>
   <div id="dinoScatter"></div>
+  <div id="dinoParty"></div>
   <button id="menuBtn">☰</button>
   <nav class="side-menu" id="sideMenu">
     <h2>Menu</h2>
@@ -558,6 +599,77 @@
   let scatterToken = 0;
   layoutScatterRandom();
   window.addEventListener('resize', () => { if (!dinoScatter.classList.contains('show')) layoutScatterRandom(); });
+  // Dino PARTY mode: raining + flying dinos that grow/shrink and swap emoji while spinning
+  const dinoParty = document.getElementById('dinoParty');
+  const PARTY_EMOJIS = ['🦖','🦕','🦎','🐲','🐢','🐊','🦤','🐉'];
+  const PARTY_COUNT = 18;
+  const partyDinos = [];
+  for (let i = 0; i < PARTY_COUNT; i++) {
+    const outer = document.createElement('div');
+    outer.className = 'party-dino';
+    const inner = document.createElement('div');
+    inner.className = 'party-inner';
+    inner.textContent = PARTY_EMOJIS[i % PARTY_EMOJIS.length];
+    outer.appendChild(inner);
+    dinoParty.appendChild(outer);
+    partyDinos.push({ outer, inner });
+  }
+  let partyEmojiTimer = null;
+  function partyShuffleEmoji() {
+    partyDinos.forEach(({ inner }) => {
+      if (Math.random() < 0.6) inner.textContent = PARTY_EMOJIS[Math.floor(Math.random() * PARTY_EMOJIS.length)];
+    });
+  }
+  function layoutPartyRandom(fallDurSec, mode) {
+    // mode: 'single' = fall once, 'auto' = fall infinite
+    partyDinos.forEach(({ outer, inner }) => {
+      const flying = Math.random() < 0.35; // 35% fly sideways, rest rain down
+      const size = 3 + Math.random() * 5; // 3vmin - 8vmin
+      const fallDur = fallDurSec * (0.6 + Math.random() * 1.1);
+      const wiggleDur = 0.4 + Math.random() * 0.8;
+      const delay = mode === 'auto' ? (-Math.random() * fallDur) : (Math.random() * 0.25);
+      inner.style.fontSize = size + 'vmin';
+      inner.style.animationDuration = wiggleDur + 's';
+      outer.style.animation = 'none';
+      void outer.offsetWidth;
+      if (flying) {
+        outer.style.left = '0';
+        outer.style.top = (Math.random() * 100) + 'vh';
+        const reverse = Math.random() < 0.5;
+        outer.style.animation = (reverse ? 'partyFly ' : 'partyFly ') + fallDur + 's linear ' + (mode === 'auto' ? 'infinite' : '1');
+        if (!reverse) outer.style.animationDirection = 'reverse';
+      } else {
+        outer.style.left = (Math.random() * 100) + 'vw';
+        outer.style.top = '0';
+        const reverse = Math.random() < 0.5;
+        outer.style.animation = (reverse ? 'partyFallReverse ' : 'partyFall ') + fallDur + 's linear ' + (mode === 'auto' ? 'infinite' : '1');
+      }
+      outer.style.animationDelay = delay + 's';
+    });
+  }
+  function setPartyVisible(v) { dinoParty.classList.toggle('show', v); }
+  function startPartySingle(durSec) {
+    clearInterval(partyEmojiTimer);
+    layoutPartyRandom(Math.max(durSec * 1.6, 0.9), 'single');
+    setPartyVisible(true);
+    partyShuffleEmoji();
+    const s = parseFloat(speedInput.value) || 1;
+    partyEmojiTimer = setInterval(partyShuffleEmoji, Math.max(90, 320 / s));
+  }
+  function startPartyAuto(baseDurSec) {
+    clearInterval(partyEmojiTimer);
+    layoutPartyRandom(Math.max(baseDurSec * 1.8, 0.5), 'auto');
+    setPartyVisible(true);
+    partyShuffleEmoji();
+    const s = parseFloat(speedInput.value) || 1;
+    partyEmojiTimer = setInterval(partyShuffleEmoji, Math.max(90, 320 / s));
+  }
+  function stopParty() {
+    setPartyVisible(false);
+    clearInterval(partyEmojiTimer);
+    partyEmojiTimer = null;
+    partyDinos.forEach(({ outer }) => { outer.style.animation = 'none'; });
+  }
   const toggle = document.getElementById('toggle');
   const menuBtn = document.getElementById('menuBtn');
   const sideMenu = document.getElementById('sideMenu');
@@ -646,6 +758,7 @@
       dinoOrbit.style.animationDuration = (1.2 / s) + 's';
       spiralSvg.style.animationDuration = (1.2 / s) + 's';
       if (dinoScatter.classList.contains('show')) startScatterAuto(1.2 / s);
+      if (dinoParty.classList.contains('show')) startPartyAuto(1.2 / s);
     }
   }
   speedInput.addEventListener('input', () => { speedBox.value = speedInput.value; updateSpeed(); });
@@ -674,6 +787,7 @@
       updateSpeed();
       setOrbitVisible(true);
       startScatterAuto(1.2 / parseFloat(speedInput.value));
+      startPartyAuto(1.2 / parseFloat(speedInput.value));
       trippy.classList.add('active');
       document.body.classList.add('trippy-on');
       spinStart = Date.now();
@@ -686,6 +800,7 @@
       spiralSvg.classList.remove('auto-spin');
       setOrbitVisible(false);
       stopScatter();
+      stopParty();
       trippy.classList.remove('active');
       document.body.classList.remove('trippy-on');
       renderSpinTime();
@@ -718,13 +833,14 @@
     scatterToken++;
     const myToken = scatterToken;
     startScatterSingle(dur);
+    startPartySingle(dur);
     triggerTrippy();
     spinStart = Date.now();
     setTimeout(() => {
       if (myToken !== scatterToken || toggle.checked) return;
       if(spinStart && !toggle.checked){ spinTotalMs += Date.now()-spinStart; spinStart = null; renderSpinTime(); }
-      if(!toggle.checked) stopScatter();
-    }, dur*1000+80);
+      if(!toggle.checked) { stopScatter(); stopParty(); }
+    }, dur*1000+900);
   }
   document.addEventListener('keydown', (e) => {
     if (e.code === 'Space' || e.key === ' ') {

@@ -192,6 +192,66 @@
     position: relative;
     opacity: 0.35;
   }
+  .dino-orbit {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 96vmin;
+    height: 96vmin;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  .dino-orbit.show { opacity: 1; }
+  .dino-orbit.spin {
+    animation: orbitSpin 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .dino-orbit.auto-spin {
+    animation: orbitSpin 1.2s linear infinite;
+  }
+  @keyframes orbitSpin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+  .orbit-dino {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    font-size: 6vmin;
+    line-height: 1;
+    user-select: none;
+    pointer-events: none;
+    filter: drop-shadow(0 0 8px rgba(255,255,255,0.35));
+    margin: 0;
+  }
+  #dinoScatter {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 4;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    overflow: hidden;
+  }
+  #dinoScatter.show { opacity: 1; }
+  .scatter-dino {
+    position: absolute;
+    line-height: 1;
+    user-select: none;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    filter: drop-shadow(0 0 8px rgba(255,255,255,0.35));
+  }
+  @keyframes scatterSpin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+  @keyframes scatterSpinReverse {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(-360deg); }
+  }
   #menuBtn {
     position: fixed;
     top: 22px;
@@ -347,6 +407,7 @@
 <body>
   <div class="trippy-bg" id="trippy"></div>
   <div class="spiral-bg"><svg id="spiralSvg" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet"><path id="spiralPath" fill="none" stroke="white" stroke-width="1.2" stroke-linecap="round" opacity="0.9"/></svg></div>
+  <div id="dinoScatter"></div>
   <button id="menuBtn">☰</button>
   <nav class="side-menu" id="sideMenu">
     <h2>Menu</h2>
@@ -393,6 +454,7 @@
   <div class="stage" id="stage">
     <div id="circle"></div>
     <div class="dino" id="dino">🦖</div>
+    <div class="dino-orbit" id="dinoOrbit"></div>
     <div class="clock" id="clock">
       <div class="hand hour" id="hourHand"></div>
       <div class="hand minute" id="minuteHand"></div>
@@ -425,7 +487,77 @@
   const spiralSvg = document.getElementById('spiralSvg');
   const circle = document.getElementById('circle');
   const dino = document.getElementById('dino');
+  const dinoOrbit = document.getElementById('dinoOrbit');
   const stage = document.getElementById('stage');
+  // Build dinos that live OUTSIDE the clock — hidden until spinning
+  const ORBIT_EMOJIS = ['🦖','🦕','🦖','🦕','🦖','🦕','🦖','🦕','🦖','🦕','🦖','🦕'];
+  const ORBIT_RADIUS_VMIN = 48;
+  ORBIT_EMOJIS.forEach((emoji, i) => {
+    const el = document.createElement('div');
+    el.className = 'orbit-dino';
+    el.textContent = emoji;
+    const ang = (i / ORBIT_EMOJIS.length) * 360;
+    el.style.transform = 'translate(-50%,-50%) rotate(' + ang + 'deg) translateY(-' + ORBIT_RADIUS_VMIN + 'vmin)';
+    dinoOrbit.appendChild(el);
+  });
+  function setOrbitVisible(v) { dinoOrbit.classList.toggle('show', v); }
+  // Randomly-scattered dinos outside the clock — also only visible while spinning
+  const dinoScatter = document.getElementById('dinoScatter');
+  const SCATTER_EMOJIS = ['🦖','🦕','🦎','🐲','🦖','🦕','🐢','🐊'];
+  const SCATTER_COUNT = 16;
+  const scatterDinos = [];
+  for (let i = 0; i < SCATTER_COUNT; i++) {
+    const el = document.createElement('div');
+    el.className = 'scatter-dino';
+    el.textContent = SCATTER_EMOJIS[i % SCATTER_EMOJIS.length];
+    dinoScatter.appendChild(el);
+    scatterDinos.push(el);
+  }
+  function layoutScatterRandom() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const vmin = Math.min(w, h) / 100;
+    const cx = w / 2, cy = h / 2;
+    scatterDinos.forEach((el) => {
+      // random donut around the clock: 42vmin (just outside clock) to 68vmin
+      const ang = Math.random() * Math.PI * 2;
+      const radiusVmin = 42 + Math.random() * 26;
+      const x = cx + Math.cos(ang) * radiusVmin * vmin;
+      const y = cy + Math.sin(ang) * radiusVmin * vmin;
+      const size = 3 + Math.random() * 4.5; // 3vmin - 7.5vmin
+      el.style.left = (x / w * 100) + 'vw';
+      el.style.top = (y / h * 100) + 'vh';
+      el.style.fontSize = size + 'vmin';
+      el.textContent = SCATTER_EMOJIS[Math.floor(Math.random() * SCATTER_EMOJIS.length)];
+    });
+  }
+  function setScatterVisible(v) { dinoScatter.classList.toggle('show', v); }
+  function startScatterSingle(durSec) {
+    layoutScatterRandom();
+    setScatterVisible(true);
+    scatterDinos.forEach((el) => {
+      el.style.animation = 'none';
+      void el.offsetWidth;
+      const reverse = Math.random() < 0.5;
+      const dur = durSec * (0.7 + Math.random() * 0.8);
+      el.style.animation = (reverse ? 'scatterSpinReverse ' : 'scatterSpin ') + dur + 's cubic-bezier(0.34, 1.56, 0.64, 1)';
+    });
+  }
+  function startScatterAuto(baseDurSec) {
+    layoutScatterRandom();
+    setScatterVisible(true);
+    scatterDinos.forEach((el) => {
+      const reverse = Math.random() < 0.5;
+      const dur = baseDurSec * (0.5 + Math.random() * 1.2);
+      el.style.animation = (reverse ? 'scatterSpinReverse ' : 'scatterSpin ') + dur + 's linear infinite';
+    });
+  }
+  function stopScatter() {
+    setScatterVisible(false);
+    scatterDinos.forEach((el) => { el.style.animation = 'none'; });
+  }
+  let scatterToken = 0;
+  layoutScatterRandom();
+  window.addEventListener('resize', () => { if (!dinoScatter.classList.contains('show')) layoutScatterRandom(); });
   const toggle = document.getElementById('toggle');
   const menuBtn = document.getElementById('menuBtn');
   const sideMenu = document.getElementById('sideMenu');
@@ -503,13 +635,17 @@
     circle.style.setProperty('--spin-dur', (0.7 / s) + 's');
     dino.style.setProperty('--auto-dur', (1.2 / s) + 's');
     dino.style.setProperty('--spin-dur', (0.7 / s) + 's');
+    dinoOrbit.style.setProperty('--auto-dur', (1.2 / s) + 's');
+    dinoOrbit.style.setProperty('--spin-dur', (0.7 / s) + 's');
     spiralSvg.style.setProperty('--auto-dur', (1.2 / s) + 's');
     spiralSvg.style.setProperty('--spin-dur', (0.7 / s) + 's');
     trippy.style.animationDuration = (1.2 / s) + 's';
     if (circle.classList.contains('auto-spin')) {
       circle.style.animationDuration = (1.2 / s) + 's';
       dino.style.animationDuration = (1.2 / s) + 's';
+      dinoOrbit.style.animationDuration = (1.2 / s) + 's';
       spiralSvg.style.animationDuration = (1.2 / s) + 's';
+      if (dinoScatter.classList.contains('show')) startScatterAuto(1.2 / s);
     }
   }
   speedInput.addEventListener('input', () => { speedBox.value = speedInput.value; updateSpeed(); });
@@ -525,13 +661,19 @@
   style.textContent = '.auto-spin { animation-duration: var(--auto-dur, 1.2s) !important; } .spin { animation-duration: var(--spin-dur, 0.7s) !important; } .auto-spin-reverse { animation-duration: var(--auto-dur, 1.2s) !important; } .spin-reverse { animation-duration: var(--spin-dur, 0.7s) !important; }';
   document.head.appendChild(style);
   toggle.addEventListener('change', () => {
+    scatterToken++;
     if (toggle.checked) {
       circle.classList.remove('spin');
       dino.classList.remove('spin-reverse');
+      dinoOrbit.classList.remove('spin');
       spiralSvg.classList.remove('spin');
       circle.classList.add('auto-spin');
       dino.classList.add('auto-spin-reverse');
+      dinoOrbit.classList.add('auto-spin');
       spiralSvg.classList.add('auto-spin');
+      updateSpeed();
+      setOrbitVisible(true);
+      startScatterAuto(1.2 / parseFloat(speedInput.value));
       trippy.classList.add('active');
       document.body.classList.add('trippy-on');
       spinStart = Date.now();
@@ -540,7 +682,10 @@
       spinStart = null;
       circle.classList.remove('auto-spin');
       dino.classList.remove('auto-spin-reverse');
+      dinoOrbit.classList.remove('auto-spin');
       spiralSvg.classList.remove('auto-spin');
+      setOrbitVisible(false);
+      stopScatter();
       trippy.classList.remove('active');
       document.body.classList.remove('trippy-on');
       renderSpinTime();
@@ -558,17 +703,28 @@
     if (toggle.checked) return;
     circle.classList.remove('spin');
     dino.classList.remove('spin-reverse');
+    dinoOrbit.classList.remove('spin');
     spiralSvg.classList.remove('spin');
     void circle.offsetWidth;
     void dino.offsetWidth;
+    void dinoOrbit.offsetWidth;
     void spiralSvg.offsetWidth;
     circle.classList.add('spin');
     dino.classList.add('spin-reverse');
+    dinoOrbit.classList.add('spin');
     spiralSvg.classList.add('spin');
+    setOrbitVisible(true);
+    const dur = (parseFloat(getComputedStyle(circle).getPropertyValue('--spin-dur')) || 0.7);
+    scatterToken++;
+    const myToken = scatterToken;
+    startScatterSingle(dur);
     triggerTrippy();
-    const dur = (parseFloat(getComputedStyle(circle).getPropertyValue('--spin-dur')) || 0.7) * 1000;
     spinStart = Date.now();
-    setTimeout(() => { if(spinStart && !toggle.checked){ spinTotalMs += Date.now()-spinStart; spinStart = null; renderSpinTime(); } }, dur+50);
+    setTimeout(() => {
+      if (myToken !== scatterToken || toggle.checked) return;
+      if(spinStart && !toggle.checked){ spinTotalMs += Date.now()-spinStart; spinStart = null; renderSpinTime(); }
+      if(!toggle.checked) stopScatter();
+    }, dur*1000+80);
   }
   document.addEventListener('keydown', (e) => {
     if (e.code === 'Space' || e.key === ' ') {
@@ -581,6 +737,12 @@
     if (e.animationName === 'spin' && !circle.classList.contains('auto-spin')) {
       circle.classList.remove('spin');
       addLap();
+    }
+  });
+  dinoOrbit.addEventListener('animationend', (e) => {
+    if ((e.animationName === 'orbitSpin' || e.animationName === 'spin') && !dinoOrbit.classList.contains('auto-spin')) {
+      dinoOrbit.classList.remove('spin');
+      if (!toggle.checked) setOrbitVisible(false);
     }
   });
   circle.addEventListener('animationiteration', () => {
